@@ -3,7 +3,7 @@ import { Plus, Trash2, ChevronLeft, Mail, Copy, Check, MapPin, Route, FileText, 
 import { useData } from "../store.jsx";
 import { SIZES, FINISHES, sizeOf, finishLabel, priceFor, lineBf, lineBoards, lineLbs, lineCost, skuFor } from "../lib/catalog";
 import { bestRoute, mapsLink, miles } from "../lib/route";
-import { money, num, shortDate, longDate } from "../lib/format";
+import { money, num, shortDate, longDate, formatPhone } from "../lib/format";
 import { today, uid, nextNumber } from "../lib/db";
 import { go } from "../lib/nav";
 import { PageHeader, Section, Field, Btn, Pill, TierBadge, Empty, Modal } from "../ui.jsx";
@@ -411,7 +411,7 @@ function BrokerEmail({ t, order, live, shop, broker, lbs, units, onClose, onBook
     const w = mine.reduce((x, r) => x + r.lbs, 0);
     lines.push(`PICKUP ${i + 1}: ${v?.name}`);
     lines.push(`Address: ${v?.pv.pickup_address || "TBD"}`);
-    if (v?.contact || v?.phone) lines.push(`Contact: ${[v?.contact, v?.phone].filter(Boolean).join(" ")}`);
+    if (v?.contact || v?.phone) lines.push(`Contact: ${[v?.contact, formatPhone(v?.phone)].filter(Boolean).join(" ")}`);
     if (v?.pv.hours) lines.push(`Hours: ${v.pv.hours}`);
     lines.push(`Load: ${mine.map((r) => `${r.units} units ${r.size}`).join(", ")}, about ${num(w)} lbs`);
     if (v?.pv.dock_notes) lines.push(`Notes: ${v.pv.dock_notes}`);

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Phone, CalendarClock, PackageOpen, AlertTriangle, ArrowRight, Check } from "lucide-react";
 import { useData } from "../store.jsx";
 import { MAIN_SIZES, sizeOf } from "../lib/catalog";
-import { shortDate, daysSince, daysUntil, num } from "../lib/format";
+import { shortDate, daysSince, daysUntil, num, formatPhone } from "../lib/format";
 import { today } from "../lib/db";
 import { go } from "../lib/nav";
 import { PageHeader, Section, Stat, TierBadge, Pill, Empty, Btn } from "../ui.jsx";
@@ -133,7 +133,7 @@ export default function Home() {
                 </div>
                 <div className="text-xs text-faint mt-1">
                   {v.lastActivity ? `Last contact ${daysSince(v.lastActivity.at)} days ago` : "No contact logged yet"}
-                  {v.phone ? ` · ${v.phone}` : ""}
+                  {v.phone ? ` · ${formatPhone(v.phone)}` : ""}
                 </div>
               </button>
             ))}

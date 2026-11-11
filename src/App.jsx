@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LayoutGrid, Users, Container, History as HistoryIcon, FileCheck2, Settings as SettingsIcon, RefreshCw } from "lucide-react";
+import { LayoutGrid, Users, Container, History as HistoryIcon, FileCheck2, Settings as SettingsIcon, RefreshCw, Undo2, Redo2 } from "lucide-react";
 import { useData, useMe } from "./store.jsx";
 import Home from "./screens/Home.jsx";
 import Vendors from "./screens/Vendors.jsx";
@@ -29,6 +29,38 @@ function useRoute() {
     return () => window.removeEventListener("hashchange", on);
   }, []);
   return parts;
+}
+
+/* Undo and redo, with Ctrl/Cmd+Z and Shift+Ctrl/Cmd+Z. Inside a text box the
+   keys keep their normal job of undoing typing. */
+// Only one copy listens for the keys; the phone and desktop bars are both mounted.
+function UndoRedo({ dark, shortcuts }) {
+  const { undo, redo, canUndo, canRedo, undoLabel, redoLabel, historyBusy } = useData();
+  useEffect(() => {
+    if (!shortcuts) return undefined;
+    const onKey = (e) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+      const t = document.activeElement;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo, shortcuts]);
+  const cls = dark
+    ? "flex-1 flex items-center justify-center gap-1.5 rounded-md border border-white/10 py-1.5 text-xs font-semibold text-kraft-dark hover:text-white hover:bg-white/6 disabled:opacity-30 disabled:hover:bg-transparent"
+    : "p-1.5 rounded text-kraft-dark hover:text-white disabled:opacity-30";
+  return (
+    <div className={dark ? "flex gap-1.5" : "flex gap-0.5"}>
+      <button className={cls} disabled={!canUndo || historyBusy} onClick={undo} title={canUndo ? `Undo ${undoLabel}` : "Nothing to undo"}>
+        <Undo2 size={dark ? 13 : 17} />{dark && " Undo"}
+      </button>
+      <button className={cls} disabled={!canRedo || historyBusy} onClick={redo} title={canRedo ? `Redo ${redoLabel}` : "Nothing to redo"}>
+        <Redo2 size={dark ? 13 : 17} />{dark && " Redo"}
+      </button>
+    </div>
+  );
 }
 
 export default function App() {
@@ -61,9 +93,10 @@ export default function App() {
   return (
     <div className="min-h-full flex">
       <aside className="hidden md:flex w-56 shrink-0 flex-col bg-ink text-white sticky top-0 h-screen">
-        <div className="px-5 pt-6 pb-5">
+        <div className="px-5 pt-6 pb-4">
           <div className="text-[11px] tracking-[0.2em] text-kraft-dark font-mono">GNWS</div>
           <div className="text-xl font-extrabold tracking-tight">Purchasing</div>
+          <div className="mt-4"><UndoRedo dark shortcuts /></div>
         </div>
         <nav className="flex-1 px-2 space-y-0.5">
           {NAV.map((n) => {
@@ -90,6 +123,7 @@ export default function App() {
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="md:hidden sticky top-0 z-30 bg-ink text-white px-4 py-3 flex items-center justify-between">
           <div className="font-extrabold tracking-tight">GNWS Purchasing</div>
+          <div className="ml-auto mr-2"><UndoRedo /></div>
           <select className="rounded bg-ink-2 border border-white/10 px-2 py-1 text-xs" value={me} onChange={(e) => setMe(e.target.value)}>
             <option value="">Who are you?</option>
             {TEAM.map((t) => <option key={t}>{t}</option>)}

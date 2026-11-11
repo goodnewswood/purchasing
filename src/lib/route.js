@@ -54,7 +54,9 @@ export function mapsLink(addresses) {
    when someone presses the button, never in a loop, which keeps us within
    their one-request-a-second rule. */
 export async function geocode(address) {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(address)}`;
+  // The free map lookup can't place suite or unit numbers, so drop them.
+  const clean = address.replace(/,?\s*(\b(ste|suite|unit)\b\.?|#)\s*[\w-]+/gi, "").replace(/\s+,/g, ",").trim();
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(clean)}`;
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`Lookup failed (${res.status})`);
   const hits = await res.json();

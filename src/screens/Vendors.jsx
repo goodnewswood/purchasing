@@ -3,7 +3,7 @@ import { Search, Plus, ChevronLeft, MapPin, Phone, Mail, Trash2, Check, Loader2,
 import { useData } from "../store.jsx";
 import { SIZES, MAIN_SIZES, FINISHES, TIERS } from "../lib/catalog";
 import { geocode, zoneForAddress } from "../lib/route";
-import { money, shortDate, daysSince, num } from "../lib/format";
+import { money, shortDate, daysSince, num, formatPhone, telHref } from "../lib/format";
 import { today } from "../lib/db";
 import { go } from "../lib/nav";
 import { PageHeader, Section, Field, Btn, Pill, TierBadge, Empty, Modal } from "../ui.jsx";
@@ -95,7 +95,7 @@ function VendorList() {
                 <td className="px-2 py-3 hidden sm:table-cell text-ink-2">{zoneName(v.pv.zone_id) || <span className="text-faint">None</span>}</td>
                 <td className="px-2 py-3 hidden md:table-cell">
                   <div>{v.contact || <span className="text-faint">None</span>}</div>
-                  <div className="text-xs text-faint font-mono">{v.phone}</div>
+                  <div className="text-xs text-faint font-mono">{formatPhone(v.phone)}</div>
                 </td>
                 <td className="px-2 py-3 hidden lg:table-cell">
                   <div className="flex gap-1 flex-wrap">
@@ -129,11 +129,15 @@ function VendorList() {
 }
 
 /* Text fields save when you leave them, so typing never waits on the network. */
-function Blur({ value, onSave, className = "field", multiline, ...rest }) {
+function Blur({ value, onSave, className = "field", multiline, format, ...rest }) {
   const [v, setV] = useState(value ?? "");
   const [orig, setOrig] = useState(value ?? "");
   if ((value ?? "") !== orig) { setOrig(value ?? ""); setV(value ?? ""); }
-  const commit = () => { if (v !== (value ?? "")) onSave(v); };
+  const commit = () => {
+    const out = format ? format(v) : v;
+    if (out !== v) setV(out);
+    if (out !== (value ?? "")) onSave(out);
+  };
   const Tag = multiline ? "textarea" : "input";
   return <Tag className={className} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} {...rest} />;
 }
@@ -146,21 +150,20 @@ function VendorDetail({ id, me }) {
   if (!v) return <div className="text-faint">Vendor not found. <a className="underline" href="#/vendors">Back to vendors</a></div>;
   const pv = v.pv;
 
-  const setPv = (changes) => saveProfile(v.id, changes);
+  const setPv = (changes, label) => saveProfile(v.id, changes, { label });
   const setCore = (changes) => saveSupplier(v.id, changes);
 
+  /* A new address is looked up on the map straight away, then saved in one
+     go with its zone and coordinates, so there's nothing to press after. */
   const saveAddress = async (addr) => {
-    const zone_id = zoneForAddress(addr, zones) || pv.zone_id || null;
-    await setPv({ pickup_address: addr, zone_id, lat: null, lng: null, geocoded_address: null });
-  };
-  const locate = async () => {
-    if (!pv.pickup_address) return;
+    const clean = (addr || "").trim();
+    const zone_id = zoneForAddress(clean, zones) || pv.zone_id || null;
+    if (!clean) { await setPv({ pickup_address: null, lat: null, lng: null, geocoded_address: null }); return; }
     setLocating(true); setLocMsg("");
-    try {
-      const hit = await geocode(pv.pickup_address);
-      if (!hit) setLocMsg("Couldn't find that address. Try adding the city and zip.");
-      else { await setPv({ lat: hit.lat, lng: hit.lng, geocoded_address: hit.display }); setLocMsg(""); }
-    } catch (e) { setLocMsg(e.message); }
+    let hit = null;
+    try { hit = await geocode(clean); } catch (e) { setLocMsg(e.message); }
+    if (!hit) setLocMsg((m) => m || "Couldn't find that address on the map. Check the street and city, then press Find on map.");
+    await setPv({ pickup_address: clean, zone_id, lat: hit?.lat ?? null, lng: hit?.lng ?? null, geocoded_address: hit?.display ?? null }, "address");
     setLocating(false);
   };
 
@@ -183,8 +186,8 @@ function VendorDetail({ id, me }) {
           <div className="min-w-0 flex-1">
             <Blur value={v.name} onSave={(name) => setCore({ name })} className="bg-transparent text-2xl sm:text-3xl font-extrabold tracking-tight w-full outline-none border-b border-transparent focus:border-white/30" />
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-kraft-dark">
-              {v.contact && <span>{v.contact}</span>}
-              {v.phone && <a href={`tel:${v.phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-1 hover:text-white"><Phone size={13} /> {v.phone}</a>}
+              {v.contact && <span>{v.contact}{v.contactRole ? `, ${v.contactRole}` : ""}</span>}
+              {v.phone && <a href={telHref(v.phone)} className="flex items-center gap-1 hover:text-white"><Phone size={13} /> {formatPhone(v.phone)}</a>}
               {v.email && <a href={`mailto:${v.email}`} className="flex items-center gap-1 hover:text-white"><Mail size={13} /> {v.email}</a>}
             </div>
           </div>
@@ -213,15 +216,7 @@ function VendorDetail({ id, me }) {
         <div className="lg:col-span-2 space-y-5">
           <Section title="Pickup">
             <div className="space-y-3">
-              <Field label="Pickup address"><Blur value={pv.pickup_address} onSave={saveAddress} placeholder="Street, city, zip" /></Field>
-              <div className="flex items-center gap-2 text-xs">
-                {pv.lat != null
-                  ? <Pill tone="moss"><MapPin size={11} /> On the map</Pill>
-                  : <Pill tone="warn"><MapPin size={11} /> Not located yet</Pill>}
-                <Btn kind="soft" className="py-1 text-xs" onClick={locate} disabled={!pv.pickup_address || locating}>
-                  {locating ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />} {pv.lat != null ? "Locate again" : "Find on map"}
-                </Btn>
-              </div>
+              <AddressField value={pv.pickup_address} onSave={saveAddress} locating={locating} located={pv.lat != null} />
               {locMsg && <div className="text-xs text-warn">{locMsg}</div>}
               {pv.geocoded_address && <div className="text-xs text-faint">{pv.geocoded_address}</div>}
               <div className="grid grid-cols-2 gap-2">
@@ -242,8 +237,9 @@ function VendorDetail({ id, me }) {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Main contact"><Blur value={v.contact} onSave={(contact) => setCore({ contact })} /></Field>
-                <Field label="Phone"><Blur value={v.phone} onSave={(phone) => setCore({ phone })} /></Field>
+                <Field label="Role"><Blur value={v.contactRole} onSave={(contactRole) => setCore({ contactRole })} placeholder="Owner, ops manager…" /></Field>
               </div>
+              <Field label="Phone"><Blur value={formatPhone(v.phone)} format={formatPhone} onSave={(phone) => setCore({ phone })} placeholder="(408) 555-1234" /></Field>
               <Field label="Email"><Blur value={v.email} onSave={(email) => setCore({ email })} /></Field>
               <Contacts list={pv.contacts || []} onSave={(contacts) => setPv({ contacts })} />
             </div>
@@ -300,11 +296,39 @@ function VendorDetail({ id, me }) {
   );
 }
 
+/* The address box keeps what you type until you leave it or press the
+   button. The button doesn't steal focus first, so it never races the save. */
+function AddressField({ value, onSave, locating, located }) {
+  const [v, setV] = useState(value ?? "");
+  const [orig, setOrig] = useState(value ?? "");
+  if ((value ?? "") !== orig) { setOrig(value ?? ""); setV(value ?? ""); }
+  const changed = v.trim() !== (value ?? "");
+  return (
+    <div className="space-y-2">
+      <Field label="Pickup address">
+        <input className="field" value={v} placeholder="Street, city, zip" onChange={(e) => setV(e.target.value)}
+          onBlur={() => { if (changed) onSave(v); }} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
+      </Field>
+      <div className="flex items-center gap-2 text-xs">
+        {locating
+          ? <Pill><Loader2 size={11} className="animate-spin" /> Finding on map…</Pill>
+          : located && !changed
+            ? <Pill tone="moss"><MapPin size={11} /> On the map</Pill>
+            : <Pill tone="warn"><MapPin size={11} /> Not on the map</Pill>}
+        <Btn kind="soft" className="py-1 text-xs" disabled={!v.trim() || locating}
+          onMouseDown={(e) => e.preventDefault()} onClick={() => onSave(v)}>
+          <Navigation size={12} /> {located && !changed ? "Find again" : "Find on map"}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 function Contacts({ list, onSave }) {
   const [draft, setDraft] = useState({ name: "", role: "", phone: "" });
   const add = () => {
     if (!draft.name.trim()) return;
-    onSave([...list, draft]);
+    onSave([...list, { ...draft, phone: formatPhone(draft.phone) }]);
     setDraft({ name: "", role: "", phone: "" });
   };
   return (
@@ -314,14 +338,14 @@ function Contacts({ list, onSave }) {
         <div key={i} className="flex items-center gap-2 text-sm py-1">
           <span className="font-semibold">{c.name}</span>
           {c.role && <span className="text-faint">{c.role}</span>}
-          {c.phone && <a className="font-mono text-xs ml-auto" href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>{c.phone}</a>}
+          {c.phone && <a className="font-mono text-xs ml-auto" href={telHref(c.phone)}>{formatPhone(c.phone)}</a>}
           <button onClick={() => onSave(list.filter((_, j) => j !== i))} className="text-faint hover:text-redwood"><Trash2 size={13} /></button>
         </div>
       ))}
       <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 mt-1">
         <input className="field text-sm py-1.5" placeholder="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
         <input className="field text-sm py-1.5" placeholder="Role" value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })} />
-        <input className="field text-sm py-1.5" placeholder="Phone" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+        <input className="field text-sm py-1.5" placeholder="Phone" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} onBlur={() => setDraft((d) => ({ ...d, phone: formatPhone(d.phone) }))} />
         <Btn kind="soft" className="px-2" onClick={add}><Plus size={14} /></Btn>
       </div>
     </div>

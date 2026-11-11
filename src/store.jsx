@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   KV, kvGet, kvUpdate, selectAll, upsertRow, insertRow, updateRow, deleteRow, uid, nextNumber,
 } from "./lib/db";
@@ -38,6 +38,22 @@ export function DataProvider({ children }) {
 
   const patch = (p) => setD((cur) => ({ ...cur, ...(typeof p === "function" ? p(cur) : p) }));
 
+  // Latest data for actions that need "what it was before" without going stale.
+  const dataRef = useRef(d);
+  dataRef.current = d;
+
+  /* Undo and redo. Each change records how to put it back and how to do it
+     again. Covers vendor edits, prices and the activity log. */
+  const hist = useRef({ undo: [], redo: [] });
+  const [histTick, setHistTick] = useState(0);
+  const record = (entry) => {
+    hist.current.undo.push(entry);
+    if (hist.current.undo.length > 100) hist.current.undo.shift();
+    hist.current.redo = [];
+    setHistTick((n) => n + 1);
+  };
+  const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj?.[k] ?? null]));
+
   /* Vendors are two halves: the shared record in kv (name, phone, pricing
      Office uses) and the Purchasing profile in pur_vendors. The list view
      joins them so each screen sees one vendor. */
@@ -54,19 +70,38 @@ export function DataProvider({ children }) {
       .sort((a, b) => (a.pv.tier || 9) - (b.pv.tier || 9) || a.name.localeCompare(b.name));
   }, [d.suppliers, d.purVendors, d.activities]);
 
-  const actions = useMemo(() => ({
+  const actions = useMemo(() => {
+  const actions = {
     reload: load,
 
-    async saveProfile(supplierId, changes) {
-      const existing = d.purVendors.find((p) => p.supplier_id === supplierId) || { supplier_id: supplierId };
-      const row = await upsertRow("pur_vendors", { ...existing, ...changes, supplier_id: supplierId, updated_at: new Date().toISOString() }, "supplier_id");
+    /* Sends only the fields that changed. Two quick saves (typing an address
+       then pressing Find on map) used to send the whole old row and undo
+       each other. */
+    async saveProfile(supplierId, changes, opts = {}) {
+      const before = pick(dataRef.current.purVendors.find((p) => p.supplier_id === supplierId), Object.keys(changes));
+      const row = await upsertRow("pur_vendors", { ...changes, supplier_id: supplierId, updated_at: new Date().toISOString() }, "supplier_id");
       patch((cur) => ({ purVendors: [...cur.purVendors.filter((p) => p.supplier_id !== supplierId), row] }));
+      if (opts.record !== false) {
+        record({
+          label: opts.label || "vendor edit",
+          undo: () => actions.saveProfile(supplierId, before, { record: false }),
+          redo: () => actions.saveProfile(supplierId, changes, { record: false }),
+        });
+      }
       return row;
     },
 
-    async saveSupplier(supplierId, changes) {
+    async saveSupplier(supplierId, changes, opts = {}) {
+      const before = pick(dataRef.current.suppliers.find((s) => s.id === supplierId), Object.keys(changes));
       const next = await kvUpdate(KV.suppliers, (list) => list.map((s) => (s.id === supplierId ? { ...s, ...changes } : s)));
       patch({ suppliers: next });
+      if (opts.record !== false) {
+        record({
+          label: opts.label || "vendor edit",
+          undo: () => actions.saveSupplier(supplierId, before, { record: false }),
+          redo: () => actions.saveSupplier(supplierId, changes, { record: false }),
+        });
+      }
     },
 
     async addVendor(name) {
@@ -77,18 +112,41 @@ export function DataProvider({ children }) {
       return s.id;
     },
 
-    async logActivity(a) {
+    async logActivity(a, opts = {}) {
       const row = await insertRow("pur_activities", a);
-      patch((cur) => ({ activities: [row, ...cur.activities] }));
+      patch((cur) => ({ activities: [row, ...cur.activities.filter((x) => x.id !== row.id)].sort((x, y) => (y.at || "").localeCompare(x.at || "")) }));
+      if (opts.record !== false) {
+        record({
+          label: "log entry",
+          undo: () => actions.deleteActivity(row.id, { record: false }),
+          redo: () => actions.logActivity(row, { record: false }),
+        });
+      }
       return row;
     },
-    async updateActivity(id, changes) {
+    async updateActivity(id, changes, opts = {}) {
+      const before = pick(dataRef.current.activities.find((a) => a.id === id), Object.keys(changes));
       const row = await updateRow("pur_activities", { id }, changes);
       patch((cur) => ({ activities: cur.activities.map((a) => (a.id === id ? row : a)) }));
+      if (opts.record !== false) {
+        record({
+          label: "log entry",
+          undo: () => actions.updateActivity(id, before, { record: false }),
+          redo: () => actions.updateActivity(id, changes, { record: false }),
+        });
+      }
     },
-    async deleteActivity(id) {
+    async deleteActivity(id, opts = {}) {
+      const old = dataRef.current.activities.find((a) => a.id === id);
       await deleteRow("pur_activities", { id });
       patch((cur) => ({ activities: cur.activities.filter((a) => a.id !== id) }));
+      if (opts.record !== false && old) {
+        record({
+          label: "deleted log entry",
+          undo: () => actions.logActivity(old, { record: false }),
+          redo: () => actions.deleteActivity(id, { record: false }),
+        });
+      }
     },
 
     async saveTruckload(t) {
@@ -142,9 +200,32 @@ export function DataProvider({ children }) {
       const row = await upsertRow("pur_zones", z, "id");
       patch((cur) => ({ zones: [...cur.zones.filter((x) => x.id !== row.id), row].sort((a, b) => a.sort - b.sort) }));
     },
-  }), [d.purVendors, load]);
+  };
+  return actions;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
 
-  const value = useMemo(() => ({ ...d, vendors, status, error, ...actions }), [d, vendors, status, error, actions]);
+  const [busy, setBusy] = useState(false);
+  const undo = useCallback(async () => {
+    const e = hist.current.undo.pop();
+    if (!e) return;
+    setBusy(true);
+    try { await e.undo(); hist.current.redo.push(e); } finally { setBusy(false); setHistTick((n) => n + 1); }
+  }, []);
+  const redo = useCallback(async () => {
+    const e = hist.current.redo.pop();
+    if (!e) return;
+    setBusy(true);
+    try { await e.redo(); hist.current.undo.push(e); } finally { setBusy(false); setHistTick((n) => n + 1); }
+  }, []);
+  const historyApi = useMemo(() => ({
+    undo, redo, historyBusy: busy,
+    canUndo: hist.current.undo.length > 0, canRedo: hist.current.redo.length > 0,
+    undoLabel: hist.current.undo.at(-1)?.label, redoLabel: hist.current.redo.at(-1)?.label,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [undo, redo, busy, histTick]);
+
+  const value = useMemo(() => ({ ...d, vendors, status, error, ...actions, ...historyApi }), [d, vendors, status, error, actions, historyApi]);
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
 }
 

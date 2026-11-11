@@ -44,3 +44,13 @@ export function amountInWords(amount) {
   }
   return `${chunks.join(" ")} and ${c}/100`;
 }
+
+// "(408) 555-1234". Anything that isn't a 10 digit US number is left as typed.
+export function formatPhone(s) {
+  if (!s) return s || "";
+  let digits = String(s).replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
+  if (digits.length !== 10) return String(s).trim();
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+export const telHref = (s) => `tel:${String(s || "").replace(/[^\d+]/g, "")}`;

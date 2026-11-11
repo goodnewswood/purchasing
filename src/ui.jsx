@@ -51,7 +51,8 @@ export const Stat = ({ label, value, sub, tone }) => (
 );
 
 export const Section = ({ title, action, children, className = "" }) => (
-  <section className={`card p-4 sm:p-5 ${className}`}>
+  // min-w-0 so long notes inside a grid column truncate instead of pushing the page sideways on a phone.
+  <section className={`card p-4 sm:p-5 min-w-0 ${className}`}>
     {(title || action) && (
       <div className="flex items-center justify-between gap-3 mb-3">
         <h2 className="font-bold text-[15px]">{title}</h2>

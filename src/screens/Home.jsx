@@ -75,7 +75,7 @@ export default function Home() {
                 <span className="font-semibold min-w-40">{v.name}</span>
                 <TierBadge tier={v.pv.tier} />
                 <span className="text-xs text-faint">{zoneName(v.pv.zone_id)} · reported {shortDate(at)}</span>
-                <span className="ml-auto flex gap-1.5">
+                <span className="ml-auto flex flex-wrap gap-1.5">
                   {Object.entries(s || {}).filter(([, n]) => Number(n) > 0).map(([k, n]) => <Pill key={k}>{n} × {k}</Pill>)}
                 </span>
               </button>
@@ -97,7 +97,7 @@ export default function Home() {
                     <button onClick={() => updateActivity(a.id, { follow_up_done: true })} title="Mark done" className="h-6 w-6 shrink-0 rounded-full border border-kraft-dark hover:bg-moss hover:text-white flex items-center justify-center"><Check size={13} /></button>
                     <button onClick={() => go(`vendors/${a.supplier_id}`)} className="text-left min-w-0 flex-1">
                       <div className="font-semibold truncate">{vName(a.supplier_id)}</div>
-                      <div className="text-xs text-faint truncate">{a.summary || "Follow up"}</div>
+                      <div className="text-xs text-faint line-clamp-2 break-words">{a.summary || "Follow up"}</div>
                     </button>
                     <Pill tone={due < 0 ? "warn" : due === 0 ? "red" : "plain"}>{due < 0 ? `${-due}d late` : due === 0 ? "Today" : shortDate(a.follow_up)}</Pill>
                   </div>

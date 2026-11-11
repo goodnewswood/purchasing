@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* GNWS palette, shared with Office and Ops so the three apps feel like one. */
+@theme {
+  --color-ink: #221d19;
+  --color-ink-2: #3a322b;
+  --color-paper: #f6f3ec;
+  --color-panel: #ffffff;
+  --color-redwood: #7e2f21;
+  --color-redwood-dark: #5e2317;
+  --color-kraft: #e4dccb;
+  --color-kraft-dark: #c9bda3;
+  --color-moss: #4a5d3a;
+  --color-moss-light: #dfe8d3;
+  --color-faint: #8a8172;
+  --color-warn: #a65d21;
+  --color-warn-light: #f6e3cf;
+  --color-gold: #b8862b;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html, body, #root { height: 100%; }
+body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+.field {
+  width: 100%;
+  border: 1px solid var(--color-kraft-dark);
+  background: #fff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field:focus { border-color: var(--color-redwood); box-shadow: 0 0 0 3px rgb(126 47 33 / 0.12); }
+.label { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-faint); font-family: var(--font-mono); margin-bottom: 4px; }
+.card { background: #fff; border: 1px solid var(--color-kraft); border-radius: 10px; }
+
+/* Check printing: only the check sheet shows, at true size on letter paper. */
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; }
+  @page { size: letter; margin: 0; }
+}

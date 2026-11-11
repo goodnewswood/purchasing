@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { LayoutGrid, Users, Container, History as HistoryIcon, FileCheck2, Settings as SettingsIcon, RefreshCw, Undo2, Redo2 } from "lucide-react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { LayoutGrid, Users, Container, History as HistoryIcon, FileCheck2, PieChart as PieIcon, Settings as SettingsIcon, RefreshCw, Undo2, Redo2 } from "lucide-react";
 import { useData, useMe } from "./store.jsx";
 import Home from "./screens/Home.jsx";
 import Vendors from "./screens/Vendors.jsx";
@@ -7,6 +7,8 @@ import Truckloads from "./screens/Truckloads.jsx";
 import History from "./screens/History.jsx";
 import Checks from "./screens/Checks.jsx";
 import Settings from "./screens/Settings.jsx";
+// Charts are a big download, so Reports loads only when opened.
+const Reports = lazy(() => import("./screens/Reports.jsx"));
 
 const NAV = [
   { id: "home", label: "Supply", icon: LayoutGrid },
@@ -14,6 +16,7 @@ const NAV = [
   { id: "truckloads", label: "Truckloads", icon: Container },
   { id: "history", label: "History", icon: HistoryIcon },
   { id: "checks", label: "Checks", icon: FileCheck2 },
+  { id: "reports", label: "Reports", icon: PieIcon },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 const TEAM = ["Ero", "Leo", "Allison", "Will"];
@@ -87,6 +90,7 @@ export default function App() {
     truckloads: <Truckloads id={id} sub={sub} />,
     history: <History />,
     checks: <Checks id={id} />,
+    reports: <Suspense fallback={<div className="text-faint text-sm font-mono">Loading reports…</div>}><Reports /></Suspense>,
     settings: <Settings />,
   }[section] || <Home me={me} />;
 
@@ -130,7 +134,7 @@ export default function App() {
           </select>
         </header>
         <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10">{screen}</main>
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-kraft grid grid-cols-6">
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-kraft grid grid-cols-7">
           {NAV.map((n) => {
             const Icon = n.icon;
             const active = section === n.id;

@@ -68,4 +68,7 @@ export const TIERS = [
   { id: 1, label: "Tier 1", blurb: "Truckload producers" },
   { id: 2, label: "Tier 2", blurb: "A few units a pickup" },
   { id: 3, label: "Tier 3", blurb: "Small or occasional" },
+  // Not a fence crew: salvage yards, deconstruction outfits, mills, one-off lots.
+  { id: 4, label: "Other", blurb: "Not a fence company: yards, mills, one-off lots" },
 ];
+export const tierLabel = (id) => TIERS.find((t) => t.id === id)?.label || "No tier";

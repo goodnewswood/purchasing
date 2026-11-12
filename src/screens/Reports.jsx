@@ -6,7 +6,7 @@ import {
 import { BarChart3, Table2 } from "lucide-react";
 import { useData } from "../store.jsx";
 import { money, num } from "../lib/format";
-import { SIZES } from "../lib/catalog";
+import { SIZES, tierLabel } from "../lib/catalog";
 import { PageHeader, Stat } from "../ui.jsx";
 
 /* Twelve reports on what we spend and who we buy from. Money comes from the
@@ -22,7 +22,7 @@ const CAT_COLOR = Object.fromEntries(CATEGORIES.map((c, i) => [c, PALETTE[i] || 
 const KIND_LABEL = { call: "Call", text: "Text", visit: "Visit", email: "Email", note: "Note" };
 const KIND_COLOR = { call: PALETTE[0], text: PALETTE[1], visit: PALETTE[2], email: PALETTE[3], note: PALETTE[4] };
 const SIZE_COLOR = { 165: PALETTE[0], 166: PALETTE[1], 185: PALETTE[2], 186: PALETTE[3], 164: PALETTE[4], 184: PALETTE[5], DF: PALETTE[6] };
-const TIER_COLOR = { "Tier 1": PALETTE[0], "Tier 2": PALETTE[1], "Tier 3": PALETTE[2], "No tier": OTHER, "Not in the app": "#d6d3d1" };
+const TIER_COLOR = { "Tier 1": PALETTE[0], "Tier 2": PALETTE[1], "Tier 3": PALETTE[2], Other: PALETTE[3], "No tier": OTHER, "Not in the app": "#d6d3d1" };
 
 const ymd = (d) => d.toISOString().slice(0, 10);
 const monthKey = (s) => (s || "").slice(0, 7);
@@ -154,7 +154,7 @@ export default function Reports() {
     woodVendors.forEach((v) => { const k = fn(v); g[k] = (g[k] || 0) + v.total; });
     return Object.entries(g).map(([name, value]) => ({ name, value })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
   };
-  const r5 = groupWood((v) => { const t = v.supplierId && vById[v.supplierId]?.pv?.tier; return !v.supplierId || !vById[v.supplierId] ? "Not in the app" : t ? `Tier ${t}` : "No tier"; })
+  const r5 = groupWood((v) => { const t = v.supplierId && vById[v.supplierId]?.pv?.tier; return !v.supplierId || !vById[v.supplierId] ? "Not in the app" : t ? tierLabel(t) : "No tier"; })
     .map((x) => ({ ...x, color: TIER_COLOR[x.name] }));
   const r6 = groupWood((v) => zoneName(vById[v.supplierId]?.pv?.zone_id) || "No zone yet");
   const r7 = months.map((k) => {

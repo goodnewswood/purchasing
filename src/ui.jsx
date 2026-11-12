@@ -39,7 +39,7 @@ export const Pill = ({ children, tone = "plain", className = "" }) => {
 export const TierBadge = ({ tier }) => {
   if (!tier) return <Pill>No tier</Pill>;
   const tone = tier === 1 ? "red" : tier === 2 ? "gold" : "plain";
-  return <Pill tone={tone}>Tier {tier}</Pill>;
+  return <Pill tone={tone}>{tier === 4 ? "Other" : `Tier ${tier}`}</Pill>;
 };
 
 export const Stat = ({ label, value, sub, tone }) => (

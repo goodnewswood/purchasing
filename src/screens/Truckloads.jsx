@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Trash2, ChevronLeft, Mail, Copy, Check, MapPin, Route, FileText, AlertTriangle, ExternalLink, Save, Printer } from "lucide-react";
 import { useData } from "../store.jsx";
-import { SIZES, FINISHES, sizeOf, finishLabel, priceFor, lineBf, lineBoards, lineLbs, lineCost, skuFor } from "../lib/catalog";
+import { SIZES, FINISHES, sizeOf, finishLabel, priceFor, lineBf, lineBoards, lineLbs, lineCost, skuFor, tierLabel } from "../lib/catalog";
 import { bestRoute, mapsLink, miles } from "../lib/route";
 import { money, num, shortDate, longDate, formatPhone } from "../lib/format";
 import { today, uid, nextNumber } from "../lib/db";
@@ -225,10 +225,10 @@ function Builder({ id }) {
                       setPick(r.key, { supplierId: e.target.value, price: v ? priceFor(v.pv, r.size, r.finish) || "" : "" });
                     }}>
                       <option value="">Pick vendor</option>
-                      {[1, 2, 3, null].map((tier) => {
+                      {[1, 2, 3, 4, null].map((tier) => {
                         const group = vendorOptions(r.supplierId).filter((v) => (v.pv.tier || null) === tier);
                         if (!group.length) return null;
-                        return <optgroup key={String(tier)} label={tier ? `Tier ${tier}` : "No tier"}>{group.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup>;
+                        return <optgroup key={String(tier)} label={tierLabel(tier)}>{group.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup>;
                       })}
                     </select>
                   </Field>

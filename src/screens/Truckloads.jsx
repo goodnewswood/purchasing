@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Trash2, ChevronLeft, Mail, Copy, Check, MapPin, Route, FileText, AlertTriangle, ExternalLink, Save } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Mail, Copy, Check, MapPin, Route, FileText, AlertTriangle, ExternalLink, Save, Printer } from "lucide-react";
 import { useData } from "../store.jsx";
 import { SIZES, FINISHES, sizeOf, finishLabel, priceFor, lineBf, lineBoards, lineLbs, lineCost, skuFor } from "../lib/catalog";
 import { bestRoute, mapsLink, miles } from "../lib/route";
@@ -7,6 +7,7 @@ import { money, num, shortDate, longDate, formatPhone } from "../lib/format";
 import { today, uid, nextNumber } from "../lib/db";
 import { go } from "../lib/nav";
 import { PageHeader, Section, Field, Btn, Pill, TierBadge, Empty, Modal } from "../ui.jsx";
+import BOL from "./BOL.jsx";
 
 const STATUSES = [
   { id: "planning", label: "Planning", tone: "plain" },
@@ -17,7 +18,8 @@ const STATUSES = [
 const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
 const VENDOR_COLORS = ["#7E2F21", "#4A5D3A", "#B8862B", "#3F5A7A", "#7A4A6E", "#A65D21"];
 
-export default function Truckloads({ id }) {
+export default function Truckloads({ id, sub }) {
+  if (id && sub === "bol") return <BOL id={id} />;
   if (id === "new") return <Builder key="new" />;
   if (id) return <Builder key={id} id={id} />;
   return <TruckList />;
@@ -188,6 +190,7 @@ function Builder({ id }) {
       <a href="#/truckloads" className="inline-flex items-center gap-1 text-sm text-faint hover:text-ink"><ChevronLeft size={15} /> All truckloads</a>
 
       <PageHeader title={<span className="flex items-center gap-3">Truckload <span className="font-mono text-lg text-faint">{t.number}</span></span>} sub={t.date ? longDate(t.date) : "No pickup date yet"}>
+        {existing && <Btn onClick={() => go(`truckloads/${existing.id}/bol`)} disabled={dirty} title={dirty ? "Save first" : "Print bill of lading"}><Printer size={14} /> BOL</Btn>}
         {existing && <Btn onClick={() => { if (confirm("Delete this truckload? POs already created stay.")) { deleteTruckload(existing.id); go("truckloads"); } }}><Trash2 size={14} /></Btn>}
         <Btn kind={dirty ? "primary" : "ghost"} onClick={() => persist()} disabled={saving || live.length === 0}><Save size={14} /> {dirty ? "Save" : "Saved"}</Btn>
       </PageHeader>

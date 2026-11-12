@@ -81,8 +81,8 @@ export default function Settings() {
           { key: "courses", label: "Courses", type: "number" }, { key: "perCourse", label: "Units per course", type: "number" },
           { key: "lbsPerBf", label: "Lbs per board foot", type: "number", step: "0.05" }, { key: "wetFactor", label: "Wet factor", type: "number", step: "0.05" },
         ]} />
-      <SettingForm title="Shop (delivery)" keyName="shop" help="Where every truck delivers. Latitude and longitude place the shop for routing."
-        fields={[{ key: "address", label: "Address", wide: true }, { key: "lat", label: "Latitude", type: "number", step: "0.0001" }, { key: "lng", label: "Longitude", type: "number", step: "0.0001" }]} />
+      <SettingForm title="Shop (delivery)" keyName="shop" help="Where every truck delivers. The contact and phone print on bills of lading. Latitude and longitude place the shop for routing."
+        fields={[{ key: "address", label: "Address", wide: true }, { key: "contact", label: "Receiving contact" }, { key: "phone", label: "Receiving phone" }, { key: "lat", label: "Latitude", type: "number", step: "0.0001" }, { key: "lng", label: "Longitude", type: "number", step: "0.0001" }]} />
       <SettingForm title="Checks" keyName="checks" help="Offsets nudge everything printed on the check, in inches. Positive moves right and down. Print the test page from the Checks screen to dial it in."
         fields={[{ key: "nextNumber", label: "Next check number", type: "number" }, { key: "offsetX", label: "Offset right (in)", type: "number", step: "0.01" }, { key: "offsetY", label: "Offset down (in)", type: "number", step: "0.01" }]} />
       <Zones />

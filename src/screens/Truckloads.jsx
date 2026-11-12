@@ -156,6 +156,14 @@ function Builder({ id }) {
     for (let i = 0; i < Number(r.units); i++) spots.push({ sid: s.id, label: r.size });
   }));
 
+  /* POs go out one vendor at a time. A vendor that already has a PO from
+     this truck is skipped, so someone can add more vendors later and make
+     just their POs. */
+  const { pos } = data;
+  const hasPO = new Set(pos.filter((p) => (t.po_ids || []).includes(p.id)).map((p) => p.supplierId));
+  const needPO = order.filter((s) => !hasPO.has(s.id));
+  const needLines = live.filter((r) => !hasPO.has(r.supplierId));
+
   const persist = async (extra = {}) => {
     setSaving(true);
     const row = {
@@ -240,6 +248,8 @@ function Builder({ id }) {
                     <button onClick={() => set({ picks: t.picks.length > 1 ? t.picks.filter((x) => x.key !== r.key) : [blankPick()] })} className="text-faint hover:text-redwood"><Trash2 size={16} /></button>
                   </div>
                 </div>
+                {/* Optional, for loads that aren't standard units (beams, framing). Prints on the PO. */}
+                <input className="field mt-2 text-sm" value={r.desc || ""} placeholder="Description (optional), like 4x6, 10 to 17 ft" onChange={(e) => setPick(r.key, { desc: e.target.value })} />
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-faint">
                   {r.supplierId && <TierBadge tier={r.v?.pv.tier} />}
                   {Number(r.units) > 0 && <span>{!isDF && `${num(r.boards)} boards · `}{num(r.bf)} bf · {num(r.lbs)} lbs</span>}
@@ -313,16 +323,16 @@ function Builder({ id }) {
 
       <div className="flex flex-wrap justify-end gap-2 pb-6">
         <Btn onClick={() => setEmailOpen(true)} disabled={live.length === 0}><Mail size={15} /> Email to {broker.name || "broker"}</Btn>
-        <Btn kind="primary" onClick={() => setPoOpen(true)} disabled={live.length === 0 || live.some((r) => !(Number(r.price) > 0)) || (t.po_ids || []).length > 0}>
-          <FileText size={15} /> {(t.po_ids || []).length ? `${t.po_ids.length} POs created` : "Create POs"}
+        <Btn kind="primary" onClick={() => setPoOpen(true)} disabled={needPO.length === 0 || needLines.some((r) => !(Number(r.price) > 0))}>
+          <FileText size={15} /> {needPO.length === 0 && hasPO.size ? `${hasPO.size} PO${hasPO.size === 1 ? "" : "s"} created` : hasPO.size ? `Create ${needPO.length} more PO${needPO.length === 1 ? "" : "s"}` : "Create POs"}
         </Btn>
       </div>
 
       {emailOpen && <BrokerEmail t={t} order={order} live={live} shop={shop} broker={broker} lbs={lbs} units={units} onClose={() => setEmailOpen(false)}
         onBooked={async () => { await persist({ status: t.status === "planning" ? "booked" : t.status }); setT((c) => ({ ...c, status: c.status === "planning" ? "booked" : c.status })); }} />}
-      {poOpen && <CreatePOs t={t} order={order} live={live} products={products} freight={freight} bf={bf} onClose={() => setPoOpen(false)}
+      {poOpen && <CreatePOs t={t} order={needPO} live={needLines} products={products} freight={freight} bf={bf} onClose={() => setPoOpen(false)}
         onCreate={async () => {
-          const drafts = order.map((s) => {
+          const drafts = needPO.map((s) => {
             const lines = live.filter((r) => r.supplierId === s.id);
             const vbf = lines.reduce((x, r) => x + r.bf, 0);
             return {
@@ -332,16 +342,17 @@ function Builder({ id }) {
                 const m = skuFor(r.size, products);
                 const isDF = r.size === "DF";
                 const perUnit = isDF ? Number(r.bfPerUnit) || sizeOf("DF").bfPerUnit : Number(r.perUnit) || sizeOf(r.size).boardsPerUnit;
-                return { sizeLabel: m.sku, productId: m.productId, boardCount: perUnit, copies: Number(r.units), cost: Math.round(r.cost * 100) / 100, finish: r.finish };
+                return { sizeLabel: m.sku, productId: m.productId, boardCount: perUnit, copies: Number(r.units), cost: Math.round(r.cost * 100) / 100, finish: r.finish, ...(r.desc ? { description: r.desc } : {}) };
               }),
               totalCost: Math.round(lines.reduce((x, r) => x + r.cost, 0) * 100) / 100,
-              note: `Truckload ${t.number}. ${lines.map((r) => `${r.units} x ${r.size} ${finishLabel(r.finish).toLowerCase()}`).join(", ")}`,
+              note: `Truckload ${t.number}. ${lines.map((r) => r.desc || `${r.units} x ${r.size} ${finishLabel(r.finish).toLowerCase()}`).join(", ")}`,
               truckloadNumber: t.number,
             };
           });
           const made = await createPOs(drafts);
-          await persist({ po_ids: made.map((p) => p.id) });
-          setT((c) => ({ ...c, po_ids: made.map((p) => p.id) }));
+          const ids = [...(t.po_ids || []), ...made.map((p) => p.id)];
+          await persist({ po_ids: ids });
+          setT((c) => ({ ...c, po_ids: ids }));
           setPoOpen(false);
           setFlash(`Created ${made.map((p) => p.number).join(", ")}. They show in Office and Ops as ordered.`);
         }} />}

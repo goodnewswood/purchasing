@@ -324,7 +324,11 @@ function Builder({ id }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-end gap-2 pb-6">
+      <div className="flex flex-wrap justify-end items-center gap-2 pb-6">
+        {/* POs already made from this truck: tap to open, edit or print. */}
+        {pos.filter((p) => (t.po_ids || []).includes(p.id)).map((p) => (
+          <a key={p.id} href={`#/po/${p.id}`} className="font-mono text-xs font-semibold text-redwood underline underline-offset-2 mr-1">{p.number}</a>
+        ))}
         <Btn onClick={() => setEmailOpen(true)} disabled={live.length === 0}><Mail size={15} /> Email to {broker.name || "broker"}</Btn>
         <Btn kind="primary" onClick={() => setPoOpen(true)} disabled={needPO.length === 0 || needLines.some((r) => !(Number(r.price) > 0))}>
           <FileText size={15} /> {needPO.length === 0 && hasPO.size ? `${hasPO.size} PO${hasPO.size === 1 ? "" : "s"} created` : hasPO.size ? `Create ${needPO.length} more PO${needPO.length === 1 ? "" : "s"}` : "Create POs"}

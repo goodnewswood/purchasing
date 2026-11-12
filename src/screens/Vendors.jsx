@@ -6,6 +6,7 @@ import { geocode, zoneForAddress } from "../lib/route";
 import { money, shortDate, daysSince, num, formatPhone, telHref } from "../lib/format";
 import { today } from "../lib/db";
 import { go } from "../lib/nav";
+import { poGoods } from "../lib/po";
 import { PageHeader, Section, Field, Btn, Pill, TierBadge, Empty, Modal } from "../ui.jsx";
 
 export default function Vendors({ id, me }) {
@@ -171,7 +172,6 @@ function VendorDetail({ id, me }) {
   const theirPurchases = purchases.filter((p) => p.supplier_id === v.id);
   const acts = activities.filter((a) => a.supplier_id === v.id);
   // Sheet rows plus POs, skipping sheet rows that were later entered as a PO.
-  const poGoods = (p) => (p.lines || []).reduce((s, l) => s + (Number(l.cost) || 0), 0);
   const sheetOnly = theirPurchases.filter((p) => !theirPOs.some((po) => p.cost != null && Math.abs(poGoods(po) - Number(p.cost)) < 1));
   const boughtBoards = sheetOnly.reduce((s, p) => s + (Number(p.boards) || 0), 0)
     + theirPOs.reduce((s, p) => s + (p.lines || []).reduce((x, l) => x + (Number(l.boardCount) || 0) * (Number(l.copies) || 1), 0), 0);
@@ -269,12 +269,12 @@ function VendorDetail({ id, me }) {
             {theirPOs.length + sheetOnly.length === 0 ? <Empty>Nothing bought yet.</Empty> : (
               <div className="divide-y divide-kraft text-sm">
                 {theirPOs.slice(0, 8).map((p) => (
-                  <div key={p.id} className="flex items-center justify-between py-2">
-                    <span className="font-mono text-xs">{p.number}</span>
+                  <a key={p.id} href={`#/po/${p.id}`} className="flex items-center justify-between py-2 hover:bg-paper -mx-2 px-2 rounded">
+                    <span className="font-mono text-xs text-redwood underline underline-offset-2">{p.number}</span>
                     <span className="text-faint text-xs">{shortDate(p.date)}</span>
                     <Pill tone={p.status === "ordered" ? "warn" : "moss"}>{p.status === "ordered" ? "Ordered" : "Received"}</Pill>
-                    <span className="font-semibold">{money((p.lines || []).reduce((s, l) => s + (Number(l.cost) || 0), 0))}</span>
-                  </div>
+                    <span className="font-semibold">{money(poGoods(p))}</span>
+                  </a>
                 ))}
                 {sheetOnly.map((p) => (
                   <div key={p.id} className="flex items-center justify-between py-2">

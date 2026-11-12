@@ -7,6 +7,7 @@ import Truckloads from "./screens/Truckloads.jsx";
 import History from "./screens/History.jsx";
 import Checks from "./screens/Checks.jsx";
 import Settings from "./screens/Settings.jsx";
+import PO from "./screens/PO.jsx";
 // Charts are a big download, so Reports loads only when opened.
 const Reports = lazy(() => import("./screens/Reports.jsx"));
 
@@ -89,6 +90,7 @@ export default function App() {
     vendors: <Vendors id={id} me={me} />,
     truckloads: <Truckloads id={id} sub={sub} />,
     history: <History />,
+    po: <PO id={id} />,
     checks: <Checks id={id} />,
     reports: <Suspense fallback={<div className="text-faint text-sm font-mono">Loading reports…</div>}><Reports /></Suspense>,
     settings: <Settings />,

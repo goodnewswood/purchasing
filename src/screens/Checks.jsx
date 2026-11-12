@@ -4,9 +4,9 @@ import { useData } from "../store.jsx";
 import { money, shortDate, longDate, amountInWords } from "../lib/format";
 import { today } from "../lib/db";
 import { go } from "../lib/nav";
+import { poGoods } from "../lib/po";
 import { PageHeader, Section, Field, Btn, Pill, Empty, Modal } from "../ui.jsx";
 
-const poGoods = (p) => (p.lines || []).reduce((s, l) => s + (Number(l.cost) || 0), 0);
 
 export default function Checks({ id }) {
   const { checks } = useData();

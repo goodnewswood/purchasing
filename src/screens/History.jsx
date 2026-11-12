@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useData } from "../store.jsx";
 import { money, num, shortDate } from "../lib/format";
 import { go } from "../lib/nav";
+import { poGoods } from "../lib/po";
 import { PageHeader, Section, Stat, Pill, Empty } from "../ui.jsx";
 
 /* Everything we've bought: the old Purchase Tracking sheet plus POs placed
@@ -24,7 +25,7 @@ export default function History() {
     const fromPOs = pos.filter((p) => !p.archived).map((p) => ({
       key: `p-${p.id}`, source: p.number, supplierId: p.supplierId, vendor: vName(p.supplierId) || "Unknown vendor",
       date: p.date, boards: (p.lines || []).reduce((s, l) => s + (Number(l.boardCount) || 0) * (Number(l.copies) || 1), 0),
-      goods: (p.lines || []).reduce((s, l) => s + (Number(l.cost) || 0), 0), freight: Number(p.shippingCost) || 0,
+      goods: poGoods(p), freight: Number(p.shippingCost) || 0, poId: p.id,
       paid: p.paymentStatus, paidVia: p.paidVia, detail: (p.lines || []).map((l) => `${l.copies || 1} x ${l.sizeLabel}`).join(", "),
       notes: p.status === "ordered" ? "Ordered, not received" : "",
     }));
@@ -101,7 +102,7 @@ export default function History() {
               <div key={r.key} className="py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span className="w-16 text-faint">{r.date ? shortDate(r.date) : "No date"}</span>
                 <span className="font-semibold min-w-32">{r.vendor}</span>
-                <Pill>{r.source}</Pill>
+                {r.poId ? <a href={`#/po/${r.poId}`} className="font-mono text-xs font-semibold text-redwood underline underline-offset-2">{r.source}</a> : <Pill>{r.source}</Pill>}
                 <span className="text-faint text-xs flex-1 min-w-40 truncate">{r.detail}{r.notes ? ` · ${r.notes}` : ""}</span>
                 <span className="text-xs">{r.boards ? `${num(r.boards)} bd` : ""}</span>
                 <span className="font-semibold w-24 text-right">{money(r.goods + r.freight)}</span>

@@ -179,6 +179,19 @@ export function DataProvider({ children }) {
       return made;
     },
 
+    // Edit one PO in place. Reads the shared list fresh so nobody else's edits are lost.
+    async savePO(id, changes) {
+      let found = false;
+      const next = await kvUpdate(KV.pos, (list) => list.map((p) => {
+        if (p.id !== id) return p;
+        found = true;
+        return { ...p, ...changes };
+      }));
+      if (!found) throw new Error("That PO is gone. Someone may have deleted it.");
+      patch({ pos: next });
+      return next.find((p) => p.id === id);
+    },
+
     async markPOsPaid(poIds, paidVia) {
       if (!poIds.length) return;
       const next = await kvUpdate(KV.pos, (list) => list.map((p) => (poIds.includes(p.id) ? { ...p, paymentStatus: "Paid", paidVia } : p)));

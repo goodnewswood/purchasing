@@ -71,4 +71,10 @@ export const TIERS = [
   // Not a fence crew: salvage yards, deconstruction outfits, mills, one-off lots.
   { id: 4, label: "Other", blurb: "Not a fence company: yards, mills, one-off lots" },
 ];
+// How a vendor keeps their boards. Wet wood weighs more, so it changes truck weight.
+export const STORAGE = [
+  { id: "covered", label: "Covered / dry" },
+  { id: "uncovered", label: "Uncovered / wet" },
+];
+export const storageLabel = (id) => STORAGE.find((s) => s.id === id)?.label || "";
 export const tierLabel = (id) => TIERS.find((t) => t.id === id)?.label || "No tier";

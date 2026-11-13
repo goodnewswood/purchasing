@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Search, Plus, ChevronLeft, MapPin, Phone, Mail, Trash2, Check, Loader2, Navigation } from "lucide-react";
 import { useData } from "../store.jsx";
-import { SIZES, MAIN_SIZES, FINISHES, TIERS } from "../lib/catalog";
+import { SIZES, MAIN_SIZES, FINISHES, TIERS, STORAGE } from "../lib/catalog";
 import { geocode, zoneForAddress } from "../lib/route";
 import { money, shortDate, daysSince, num, formatPhone, telHref } from "../lib/format";
 import { today } from "../lib/db";
@@ -90,6 +90,8 @@ function VendorList() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{v.name}</span>
                     <TierBadge tier={v.pv.tier} />
+                    {v.storage === "uncovered" && <Pill tone="warn">Wet</Pill>}
+                    {v.storage === "covered" && <Pill tone="moss">Dry</Pill>}
                   </div>
                   {!v.pv.pickup_address && <div className="text-xs text-faint mt-0.5">No pickup address</div>}
                 </td>
@@ -182,7 +184,7 @@ function VendorDetail({ id, me }) {
       <a href="#/vendors" className="inline-flex items-center gap-1 text-sm text-faint hover:text-ink"><ChevronLeft size={15} /> All vendors</a>
 
       <div className="rounded-xl bg-ink text-white p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <Blur value={v.name} onSave={(name) => setCore({ name })} className="bg-transparent text-2xl sm:text-3xl font-extrabold tracking-tight w-full outline-none border-b border-transparent focus:border-white/30" />
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-kraft-dark">
@@ -191,13 +193,24 @@ function VendorDetail({ id, me }) {
               {v.email && <a href={`mailto:${v.email}`} className="flex items-center gap-1 hover:text-white"><Mail size={13} /> {v.email}</a>}
             </div>
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex flex-col sm:items-end gap-2">
+          <div className="flex flex-wrap sm:justify-end gap-1.5">
             {TIERS.map((t) => (
               <button key={t.id} onClick={() => setPv({ tier: pv.tier === t.id ? null : t.id })} title={t.blurb}
                 className={`rounded-md px-3 py-1.5 text-sm font-bold border transition ${pv.tier === t.id ? "bg-redwood border-redwood text-white" : "border-white/20 text-kraft-dark hover:text-white"}`}>
                 {t.label}
               </button>
             ))}
+          </div>
+          {/* Covered or not: tap again to clear. Feeds the wet setting on truckloads. */}
+          <div className="flex flex-wrap sm:justify-end gap-1.5">
+            {STORAGE.map((s) => (
+              <button key={s.id} onClick={() => setCore({ storage: v.storage === s.id ? "" : s.id })}
+                className={`rounded-md px-3 py-1.5 text-sm font-bold border transition ${v.storage === s.id ? (s.id === "uncovered" ? "bg-warn border-warn text-white" : "bg-moss border-moss text-white") : "border-white/20 text-kraft-dark hover:text-white"}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3 mt-5 text-sm">

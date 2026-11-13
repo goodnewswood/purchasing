@@ -222,7 +222,7 @@ function Builder({ id }) {
                   <Field label="Vendor" className="col-span-2 sm:col-span-3">
                     <select className="field" value={r.supplierId} onChange={(e) => {
                       const v = vendorOf(e.target.value);
-                      setPick(r.key, { supplierId: e.target.value, price: v ? priceFor(v.pv, r.size, r.finish) || "" : "" });
+                      setPick(r.key, { supplierId: e.target.value, price: v ? priceFor(v.pv, r.size, r.finish) || "" : "", ...(v?.storage ? { wet: v.storage === "uncovered" } : {}) });
                     }}>
                       <option value="">Pick vendor</option>
                       {[1, 2, 3, 4, null].map((tier) => {
@@ -257,7 +257,11 @@ function Builder({ id }) {
                   {r.supplierId && <TierBadge tier={r.v?.pv.tier} />}
                   {Number(r.units) > 0 && <span>{!isDF && `${num(r.boards)} boards · `}{num(r.bf)} bf · {num(r.lbs)} lbs</span>}
                   {Number(r.units) > 0 && <span className="font-semibold text-ink">{money(r.cost)}</span>}
-                  <label className="flex items-center gap-1 ml-auto"><input type="checkbox" checked={!!r.wet} onChange={(e) => setPick(r.key, { wet: e.target.checked })} /> Wet</label>
+                  {/* Starts from how the vendor stores their wood; change it per load if needed. */}
+                  <select className="ml-auto rounded border border-kraft bg-white px-1.5 py-0.5 text-xs text-ink" value={r.wet ? "uncovered" : "covered"} onChange={(e) => setPick(r.key, { wet: e.target.value === "uncovered" })}>
+                    <option value="covered">Covered / dry</option>
+                    <option value="uncovered">Uncovered / wet</option>
+                  </select>
                   {r.supplierId && !(Number(r.price) > 0) && <span className="text-warn">Needs a price</span>}
                 </div>
               </div>

@@ -157,11 +157,17 @@ function VendorDetail({ id, me }) {
   const setCore = (changes) => saveSupplier(v.id, changes);
 
   /* A new address is looked up on the map straight away, then saved in one
-     go with its zone and coordinates, so there's nothing to press after. */
-  const saveAddress = async (addr) => {
+     go with its zone and coordinates, so there's nothing to press after.
+     The address is always saved exactly as typed; the lookup only adds the
+     map pin. A pin set by hand is left alone when the address is retyped
+     (Ero, Nov 16: the lookup kept getting rural yards wrong), unless you
+     press Find on map. */
+  const pinnedByHand = pv.geocoded_address === HAND_PIN;
+  const saveAddress = async (addr, { lookup = !pinnedByHand } = {}) => {
     const clean = (addr || "").trim();
     const zone_id = zoneForAddress(clean, zones) || pv.zone_id || null;
     if (!clean) { await setPv({ pickup_address: null, lat: null, lng: null, geocoded_address: null }); return; }
+    if (!lookup) { await setPv({ pickup_address: clean, zone_id }, "address"); return; }
     setLocating(true); setLocMsg("");
     let hit = null;
     try { hit = await geocode(clean); } catch (e) { setLocMsg(e.message); }
@@ -229,9 +235,10 @@ function VendorDetail({ id, me }) {
         <div className="lg:col-span-2 space-y-5">
           <Section title="Pickup">
             <div className="space-y-3">
-              <AddressField value={pv.pickup_address} onSave={saveAddress} locating={locating} located={pv.lat != null} />
+              <AddressField value={pv.pickup_address} onSave={saveAddress} onFind={(a) => saveAddress(a, { lookup: true })} locating={locating} located={pv.lat != null} />
               {locMsg && <div className="text-xs text-warn">{locMsg}</div>}
-              {pv.geocoded_address && <div className="text-xs text-faint">{pv.geocoded_address}</div>}
+              {pv.geocoded_address && !pinnedByHand && <div className="text-xs text-faint">Map found: {pv.geocoded_address}</div>}
+              <HandPin pv={pv} onSave={(lat, lng) => { setLocMsg(""); return setPv(lat == null ? { lat: null, lng: null, geocoded_address: null } : { lat, lng, geocoded_address: HAND_PIN }, "map pin"); }} />
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Zone">
                   <select className="field" value={pv.zone_id || ""} onChange={(e) => setPv({ zone_id: e.target.value || null })}>
@@ -309,9 +316,66 @@ function VendorDetail({ id, me }) {
   );
 }
 
+// Marks a map pin someone set by hand, so retyping the address keeps it.
+const HAND_PIN = "Pinned by hand";
+
+/* Coordinates out of whatever gets pasted: a Google Maps link (the @lat,lng
+   in the address bar, or the !3d..!4d.. form), a ?q=lat,lng link, or just
+   "38.98, -121.04" copied from a right-click on the map. */
+function parseLatLng(text) {
+  const t = String(text || "").trim();
+  // The !3d form is the place itself; @ is just where the map was centered.
+  const pats = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /[?&](?:q|ll|query)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/];
+  for (const re of pats) {
+    const m = t.match(re);
+    if (m) {
+      const lat = Number(m[1]), lng = Number(m[2]);
+      if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
+    }
+  }
+  return null;
+}
+
+/* Put the map pin exactly where the yard is when the address lookup can't
+   find it or lands in the wrong spot. Paste a Google Maps link or the
+   numbers from right-clicking the spot in Google Maps. */
+function HandPin({ pv, onSave }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const hit = parseLatLng(text);
+  const pinned = pv.geocoded_address === HAND_PIN;
+  return (
+    <div className="text-xs">
+      {pinned && (
+        <div className="flex items-center gap-2 text-moss">
+          <MapPin size={11} /> Pinned by hand at {Number(pv.lat).toFixed(5)}, {Number(pv.lng).toFixed(5)}
+          <a className="underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${pv.lat},${pv.lng}`}>check it</a>
+          <button className="underline text-faint" onClick={() => onSave(null, null)}>clear pin</button>
+        </div>
+      )}
+      {!open ? (
+        <button className="underline text-faint" onClick={() => setOpen(true)}>{pinned ? "Move the pin" : "Map spot wrong or missing? Pin it by hand"}</button>
+      ) : (
+        <div className="space-y-1.5 mt-1">
+          <input className="field text-sm py-1.5" autoFocus value={text} onChange={(e) => setText(e.target.value)}
+            placeholder="Paste a Google Maps link, or 38.98, -121.04" />
+          <div className="flex items-center gap-2">
+            <Btn kind="soft" className="py-1 text-xs" disabled={!hit} onClick={async () => { await onSave(hit.lat, hit.lng); setOpen(false); setText(""); }}>
+              <MapPin size={12} /> Save pin
+            </Btn>
+            <button className="underline text-faint" onClick={() => { setOpen(false); setText(""); }}>cancel</button>
+            {text && !hit && <span className="text-warn">Can't find coordinates in that. In Google Maps, right-click the yard and click the numbers to copy them.</span>}
+            {hit && <span className="text-faint">{hit.lat.toFixed(5)}, {hit.lng.toFixed(5)}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* The address box keeps what you type until you leave it or press the
    button. The button doesn't steal focus first, so it never races the save. */
-function AddressField({ value, onSave, locating, located }) {
+function AddressField({ value, onSave, onFind, locating, located }) {
   const [v, setV] = useState(value ?? "");
   const [orig, setOrig] = useState(value ?? "");
   if ((value ?? "") !== orig) { setOrig(value ?? ""); setV(value ?? ""); }
@@ -329,7 +393,7 @@ function AddressField({ value, onSave, locating, located }) {
             ? <Pill tone="moss"><MapPin size={11} /> On the map</Pill>
             : <Pill tone="warn"><MapPin size={11} /> Not on the map</Pill>}
         <Btn kind="soft" className="py-1 text-xs" disabled={!v.trim() || locating}
-          onMouseDown={(e) => e.preventDefault()} onClick={() => onSave(v)}>
+          onMouseDown={(e) => e.preventDefault()} onClick={() => (onFind || onSave)(v)}>
           <Navigation size={12} /> {located && !changed ? "Find again" : "Find on map"}
         </Btn>
       </div>

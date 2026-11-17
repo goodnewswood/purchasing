@@ -12,8 +12,8 @@ import { PageHeader, Section, Field, Btn, Pill } from "../ui.jsx";
 const PAYMENT = ["Unpaid", "Partial", "Paid"];
 // Who the printed PO comes from. Ethica Wood unless a PO says otherwise.
 const ISSUERS = {
-  ethica: { name: "Ethica Wood", sub: "ethicawood.com · ero@ethicawood.com", phone: "5304606083" },
-  gnws: { name: "Good News Wood Salvation", sub: "goodnews.eco", phone: "5304606083" },
+  ethica: { name: "Ethica Wood", sub: "ethicawood.com · ero@ethicawood.com", phone: "5304606083", logo: "/logos/ethica.png" },
+  gnws: { name: "Good News Wood Salvation", sub: "goodnews.eco", phone: "5304606083", logo: "/logos/gnws.png" },
 };
 
 // Line editor works in boards and price per board; the PO stores the line total.
@@ -179,7 +179,7 @@ function PrintPO({ po, vendor, shop, onBack, dirty }) {
           <div className="bg-white text-black mx-auto shadow print:shadow-none" style={{ width: "8.5in", minHeight: "11in", padding: "0.5in", boxSizing: "border-box", fontSize: "10pt" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #000", paddingBottom: "6pt", marginBottom: "10pt" }}>
               <div style={{ display: "flex", gap: "10pt", alignItems: "center" }}>
-                {po.issuer === "gnws" && <img src="/icon-192.png" alt="" style={{ height: "0.6in", width: "0.6in" }} />}
+                <img src={(ISSUERS[po.issuer] || ISSUERS.ethica).logo} alt="" style={{ height: "0.9in", width: "auto" }} />
                 <div>
                   <div style={{ fontSize: "18pt", fontWeight: 800 }}>PURCHASE ORDER</div>
                   <div style={{ fontWeight: 700 }}>{(ISSUERS[po.issuer] || ISSUERS.ethica).name}</div>

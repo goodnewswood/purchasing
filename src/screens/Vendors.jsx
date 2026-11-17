@@ -233,6 +233,24 @@ function VendorDetail({ id, me }) {
         </div>
 
         <div className="lg:col-span-2 space-y-5">
+          {/* Open POs up top so you see what's already coming from this vendor. */}
+          {theirPOs.some((p) => p.status === "ordered") && (
+            <Section title="Open POs">
+              <div className="divide-y divide-kraft text-sm">
+                {theirPOs.filter((p) => p.status === "ordered").map((p) => (
+                  <a key={p.id} href={`#/po/${p.id}`} className="block py-2 hover:bg-paper -mx-2 px-2 rounded">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs font-semibold text-redwood underline underline-offset-2">{p.number}</span>
+                      <Pill tone={p.pickupDate ? "gold" : "warn"}>{p.pickupDate ? `Pickup ${shortDate(p.pickupDate)}` : "Ordered"}</Pill>
+                      <span className="font-semibold">{money(poGoods(p))}</span>
+                    </div>
+                    <div className="text-xs text-faint mt-0.5">{(p.lines || []).map((l) => `${l.copies} × ${String(l.sizeLabel || "").replace(/RAW$/i, "")}`).join(", ")}</div>
+                  </a>
+                ))}
+              </div>
+            </Section>
+          )}
+
           <Section title="Pickup">
             <div className="space-y-3">
               <AddressField value={pv.pickup_address} onSave={saveAddress} onFind={(a) => saveAddress(a, { lookup: true })} locating={locating} located={pv.lat != null} />
@@ -288,7 +306,7 @@ function VendorDetail({ id, me }) {
           <Section title="Purchases">
             {theirPOs.length + sheetOnly.length === 0 ? <Empty>Nothing bought yet.</Empty> : (
               <div className="divide-y divide-kraft text-sm">
-                {theirPOs.slice(0, 8).map((p) => (
+                {theirPOs.slice(0, 12).map((p) => (
                   <a key={p.id} href={`#/po/${p.id}`} className="flex items-center justify-between py-2 hover:bg-paper -mx-2 px-2 rounded">
                     <span className="font-mono text-xs text-redwood underline underline-offset-2">{p.number}</span>
                     <span className="text-faint text-xs">{shortDate(p.date)}</span>

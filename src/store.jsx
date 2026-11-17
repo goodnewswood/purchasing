@@ -36,6 +36,23 @@ export function DataProvider({ children }) {
 
   useEffect(() => { load(); }, [load]);
 
+  /* POs, vendors and products are shared with Office and Ops. Re-read them
+     when the app comes back into view and every minute while it's open, so
+     a PO made in another app shows up here without a reload. */
+  const refreshShared = useCallback(async () => {
+    try {
+      const [suppliers, pos, products] = await Promise.all([kvGet(KV.suppliers), kvGet(KV.pos), kvGet(KV.products)]);
+      setD((cur) => ({ ...cur, suppliers, pos, products }));
+    } catch { /* offline for a moment; try again next tick */ }
+  }, []);
+  useEffect(() => {
+    const onShow = () => { if (document.visibilityState === "visible") refreshShared(); };
+    document.addEventListener("visibilitychange", onShow);
+    window.addEventListener("focus", onShow);
+    const t = setInterval(onShow, 60000);
+    return () => { document.removeEventListener("visibilitychange", onShow); window.removeEventListener("focus", onShow); clearInterval(t); };
+  }, [refreshShared]);
+
   const patch = (p) => setD((cur) => ({ ...cur, ...(typeof p === "function" ? p(cur) : p) }));
 
   // Latest data for actions that need "what it was before" without going stale.

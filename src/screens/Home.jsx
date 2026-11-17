@@ -2,16 +2,17 @@ import { useMemo } from "react";
 import { Phone, CalendarClock, PackageOpen, AlertTriangle, ArrowRight, Check } from "lucide-react";
 import { useData } from "../store.jsx";
 import { MAIN_SIZES, sizeOf } from "../lib/catalog";
-import { shortDate, daysSince, daysUntil, num, formatPhone } from "../lib/format";
+import { shortDate, daysSince, daysUntil, num, formatPhone, money } from "../lib/format";
 import { today } from "../lib/db";
 import { go } from "../lib/nav";
 import { PageHeader, Section, Stat, TierBadge, Pill, Empty, Btn } from "../ui.jsx";
+import { poGoods } from "../lib/po";
 
 /* The supply board: what vendors say they have right now, who's due to
    restock, and who needs a call. This is the screen that keeps us from
    running short. */
 export default function Home() {
-  const { vendors, activities, zones, pos, updateActivity } = useData();
+  const { vendors, activities, zones, pos, truckloads, updateActivity } = useData();
   const t = today();
   const zoneName = (id) => zones.find((z) => z.id === id)?.name || "No zone";
   const active = vendors.filter((v) => !v.hidden);
@@ -40,6 +41,9 @@ export default function Home() {
   const inbound = pos.filter((p) => p.status === "ordered" && !p.archived);
   const inboundUnits = inbound.reduce((s, p) => s + (p.lines || []).reduce((x, l) => x + (Number(l.copies) || 0), 0), 0);
 
+  // Units on open POs by size (185RAW counts toward 185).
+  const onOrder = (size) => inbound.reduce((s, p) => s + (p.lines || []).filter((l) => String(l.sizeLabel || "").replace(/RAW$/i, "").startsWith(size)).reduce((x, l) => x + (Number(l.copies) || 0), 0), 0);
+  const truckFor = (p) => truckloads.find((tl) => (tl.po_ids || []).includes(p.id));
   const vName = (id) => vendors.find((v) => v.id === id)?.name || "Unknown vendor";
 
   return (
@@ -64,7 +68,7 @@ export default function Home() {
                 <span className="text-xs text-faint">{sizeOf(x.size).label}</span>
               </div>
               <div className="text-3xl font-extrabold mt-1">{x.units}</div>
-              <div className="text-xs text-faint">units</div>
+              <div className="text-xs text-faint">units out there{onOrder(x.size) > 0 && <span className="ml-1 font-semibold text-moss">+{onOrder(x.size)} on order</span>}</div>
             </div>
           ))}
         </div>
@@ -84,6 +88,30 @@ export default function Home() {
         ) : (
           <Empty>No stock reported yet. Log a call on a vendor to fill this in.</Empty>
         )}
+      </Section>
+
+      <Section title={<span className="flex items-center gap-2"><PackageOpen size={16} /> On order</span>} action={<span className="text-xs text-faint">Open POs from here, Office and Ops</span>}>
+        {inbound.length ? (
+          <div className="divide-y divide-kraft">
+            {[...inbound].sort((a, b) => (a.pickupDate || a.date || "").localeCompare(b.pickupDate || b.date || "")).map((p) => {
+              const tl = truckFor(p);
+              return (
+                <div key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+                  <a href={`#/po/${p.id}`} className="font-mono text-xs font-semibold text-redwood underline underline-offset-2">{p.number}</a>
+                  <button onClick={() => go(`vendors/${p.supplierId}`)} className="font-semibold hover:underline">{vName(p.supplierId)}</button>
+                  <span className="flex flex-wrap gap-1.5">
+                    {(p.lines || []).map((l, i) => <Pill key={i}>{l.copies} × {String(l.sizeLabel || "").replace(/RAW$/i, "")}</Pill>)}
+                  </span>
+                  <span className="ml-auto flex items-center gap-2 text-xs">
+                    {tl && <a href={`#/truckloads/${tl.id}`} className="font-mono text-faint underline">{tl.number}</a>}
+                    <Pill tone={p.pickupDate ? "gold" : "plain"}>{p.pickupDate ? `Pickup ${shortDate(p.pickupDate)}` : `Ordered ${shortDate(p.date)}`}</Pill>
+                    <span className="font-semibold">{money(poGoods(p))}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : <Empty>No open POs.</Empty>}
       </Section>
 
       <div className="grid lg:grid-cols-2 gap-5">

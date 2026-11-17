@@ -10,6 +10,11 @@ import { PageHeader, Section, Field, Btn, Pill } from "../ui.jsx";
    PO record, so fields this screen doesn't know about (receiving, truckload
    number, anything Office or Ops added) are kept as they were. */
 const PAYMENT = ["Unpaid", "Partial", "Paid"];
+// Who the printed PO comes from. Ethica Wood unless a PO says otherwise.
+const ISSUERS = {
+  ethica: { name: "Ethica Wood", sub: "ethicawood.com · ero@ethicawood.com", phone: "5304606083" },
+  gnws: { name: "Good News Wood Salvation", sub: "goodnews.eco", phone: "5304606083" },
+};
 
 // Line editor works in boards and price per board; the PO stores the line total.
 const toEdit = (l) => {
@@ -54,6 +59,7 @@ export default function PO({ id }) {
       const changes = {
         supplierId: d.supplierId, date: d.date, shipVia: d.shipVia || "", paymentStatus: d.paymentStatus || "Unpaid", paidVia: d.paidVia || "",
         shippingCost: Number(d.shippingCost) || 0, discountPct: poDiscountPct(d), note: d.note || "", lines,
+        issuer: d.issuer || "ethica", pickupDate: d.pickupDate || "",
       };
       changes.totalCost = poGoods(changes);
       const saved = await savePO(po.id, JSON.parse(JSON.stringify(changes)));
@@ -80,7 +86,7 @@ export default function PO({ id }) {
       {flash && <div className="rounded-lg bg-moss-light text-moss px-4 py-3 text-sm font-semibold">{flash}</div>}
       {po.status === "received" && <div className="rounded-lg bg-warn-light text-warn px-4 py-3 text-sm">This PO was already received in Ops. Changing lines here changes the PO and what you owe, not the inventory that was counted in.</div>}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Field label="Vendor">
           <select className="field" value={d.supplierId || ""} onChange={(e) => set({ supplierId: e.target.value })}>
             {vendors.filter((v) => !v.hidden || v.id === d.supplierId).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -88,6 +94,12 @@ export default function PO({ id }) {
         </Field>
         <Field label="Date"><input type="date" className="field" value={d.date || ""} onChange={(e) => set({ date: e.target.value })} /></Field>
         <Field label="Ship via"><input className="field" value={d.shipVia || ""} onChange={(e) => set({ shipVia: e.target.value })} /></Field>
+        <Field label="Pickup date"><input type="date" className="field" value={d.pickupDate || ""} onChange={(e) => set({ pickupDate: e.target.value })} /></Field>
+        <Field label="PO from">
+          <select className="field" value={d.issuer || "ethica"} onChange={(e) => set({ issuer: e.target.value })}>
+            {Object.entries(ISSUERS).map(([k, v]) => <option key={k} value={k}>{v.name}</option>)}
+          </select>
+        </Field>
         <Field label="Payment">
           <select className="field" value={d.paymentStatus || "Unpaid"} onChange={(e) => set({ paymentStatus: e.target.value })}>
             {PAYMENT.map((p) => <option key={p}>{p}</option>)}
@@ -167,18 +179,19 @@ function PrintPO({ po, vendor, shop, onBack, dirty }) {
           <div className="bg-white text-black mx-auto shadow print:shadow-none" style={{ width: "8.5in", minHeight: "11in", padding: "0.5in", boxSizing: "border-box", fontSize: "10pt" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #000", paddingBottom: "6pt", marginBottom: "10pt" }}>
               <div style={{ display: "flex", gap: "10pt", alignItems: "center" }}>
-                <img src="/icon-192.png" alt="" style={{ height: "0.6in", width: "0.6in" }} />
+                {po.issuer === "gnws" && <img src="/icon-192.png" alt="" style={{ height: "0.6in", width: "0.6in" }} />}
                 <div>
                   <div style={{ fontSize: "18pt", fontWeight: 800 }}>PURCHASE ORDER</div>
-                  <div style={{ fontWeight: 700 }}>Good News Wood Salvation</div>
+                  <div style={{ fontWeight: 700 }}>{(ISSUERS[po.issuer] || ISSUERS.ethica).name}</div>
                   <div>{shop.address}</div>
-                  <div>{formatPhone(shop.phone || "5304606083")}</div>
+                  <div>{formatPhone(shop.phone || (ISSUERS[po.issuer] || ISSUERS.ethica).phone)} · {(ISSUERS[po.issuer] || ISSUERS.ethica).sub}</div>
                 </div>
               </div>
               <div style={{ textAlign: "right", lineHeight: 1.5 }}>
                 <div><b>PO #</b> {po.number}</div>
                 <div><b>Date</b> {po.date ? longDate(po.date) : ""}</div>
                 {po.shipVia && <div><b>Ship via</b> {po.shipVia}</div>}
+                {po.pickupDate && <div><b>Pickup</b> {longDate(po.pickupDate)}</div>}
                 {po.truckloadNumber && <div><b>Truckload</b> {po.truckloadNumber}</div>}
               </div>
             </div>
